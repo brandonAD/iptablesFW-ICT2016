@@ -94,6 +94,13 @@ iptables --policy FORWARD DROP
 
 
 
+###################################################
+#                 NAT RULES
+###################################################
+
+#SNAT so internal hosts can reach the internet
+
+iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
 
 
 
