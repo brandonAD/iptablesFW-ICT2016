@@ -93,6 +93,18 @@ iptables -A logAndDrop --source $ANY --jump DROP
 #               PRODUCTION RULES
 ###################################################
 
+####################
+# PART A: OUTGOING
+####################
+
+#iptables -A prodOUT 
+#iptables -A prodOUT
+#iptables -A prodOUT
+
+####################
+# PART B: INCOMING
+####################
+
 
 
 ###################################################
@@ -129,6 +141,9 @@ iptables -A corpOUT --protocol udp --destination $ANY --destination-port 53 --ju
 iptables -A corpOUT --destination $MCAST -out-interface enp0s3 --jump logAndDrop
 iptables -A corpOUT --destination $MCAST -out-interface enp0s8 --jump ACCEPT
 
+# Rule for allowing SSH access from the internet to 10.0.16.0/20
+iptables -A corpOUT --protocol tcp --source 10.0.16.0/20 --source-port 22 --destination $ANY --jump ACCEPT
+
 #Default action if there are no matches
 iptables -A corpOUT --source $ANY --jump logAndDrop
 
@@ -136,25 +151,28 @@ iptables -A corpOUT --source $ANY --jump logAndDrop
 # PART F: INCOMING
 ####################
 
-# No.1,2: INCOMPLETE
-
-# No.3:
+# No.1:
+	# Inverse of Outgoing No.3
 iptables -A corpIN --protocol icmp --source $PROD --jump ACCEPT
-	#ICMP type 0 is an echo-reply
+		#ICMP type 0 is an echo-reply
 iptables -A corpIN --protocol icmp --icmp-type 0 --source $DMZ --jump ACCEPT
 
-# No.4:
+	# Inverse of Outgoing No.4:
 iptables -A corpIN --protocol tcp --destination $CORP_ADMIN --source $DMZ_SERVER,10.0.0.1,192.168.0.2 --source-port 22 --jump ACCEPT
 
-# No.5:
+	# Inverse of Outgoing No.5:
 iptables -A corpIN --protocol udp --source $ANY --source-port 53 --jump ACCEPT
 
-# No.6:
+	# Inverse of Outgoing No.6:
 iptables -A corpIN --destination $MCAST --in-interface enp0s3 --jump logAndDrop
 iptables -A corpIN --destination $MCAST --in-interface enp0s9 --jump ACCEPT
 
+# No.2:
+iptables -A corpIn --protocol tcp --source $ANY --destination 10.0.16.0/20 --destination-port 22 --jump ACCEPT
+
 #Default action if there are no matches
 iptables -A corpOUT --source $ANY --jump logAndDrop
+
 ###################################################
 #                 NAT RULES
 ###################################################
