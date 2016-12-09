@@ -234,7 +234,7 @@ iptables -I prodOUT --protocol tcp -m conntrack --ctstate INVALID --jump logAndD
 iptables -A prodIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump RETURN
 
 #Default action if there are no matches
-iptables -A prodIN --source $ANY --jump logAndDrop
+iptables -A prodOUT --source $ANY --jump logAndDrop
 
 ####################
 # PART B: INCOMING
