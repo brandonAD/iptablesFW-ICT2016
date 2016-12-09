@@ -138,6 +138,32 @@ iptables -A INPUT -j commonScans
 iptables -A FORWARD -j commonScans
 
 
+### ============================= G - 8 =============================== ###
+# Drop all malformed packets regardless of direction or source. Response to these packets as follows:
+#   - stealth mode drop method to outside hosts
+#   - ICMP response to CORP and PROD hosts
+#   - log all
+
+# Log All (Silent Drop)
+iptables -N silentLogMalformedPackets 
+iptables -A silentLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - Silent Drop]: "
+iptables -A silentLogMalformedPackets -j DROP 
+
+# Log All (ICMP Response)
+iptables -N icmpLogMalformedPackets 
+iptables -A icmpLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - ICMP Error Sent]: "
+iptables -A icmpLogMalformedPackets -j REJECT -reject-with icmp-net-prohibited 
+
+# ICMP response to CORP and PROD hosts
+iptables -A INPUT -s $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
+iptables -A FORWARD -s $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
+
+# stealth mode drop method to outside hosts
+iptables -A INPUT -m conntrack --ctstate INVALID -j logMalformedPackets
+iptables -A FORWARD -m conntrack --ctstate INVALID -j logMalformedPackets
+
+
+
 #### OTHER RULES / TRICKS ####
 ## ** ----------------------------------------------------------------- **
 # ** Good rule to match all packets conntrack doesn't understand **
@@ -150,3 +176,18 @@ iptables -N INVALID_PKTS -A Inval_pkts-p tcp -m limit --limit 10/s -j REJECT --r
 iptables -A FORWARD -m conntrack --ctstate INVALID -j INVALID_PKTS
 # this matches all packets that conntrack doesn't understand (high level safety net)
 ## ** ----------------------------------------------------------------- **
+
+# BLOCK WELL-KNOWN TCP ATTACKS
+
+# syn-fin
+iptables -t raw -A PREROUTING -p tcp --tcp-flags FIN,SYN FIN,SYN -j DROP
+# syn-rst
+iptables -t raw -A PREROUTING -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
+# x-mas tree
+iptables -t raw -A PREROUTING -p tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,PSH,URG -j DROP
+# nmap FIN scan
+iptables -t raw -A PREROUTING -p tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN -j DROP
+# NULLflags attack
+iptables -t raw -A PREROUTING -p tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP
+# Allflags attack
+iptables -t raw -A PREROUTING -p tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,SYN,RST,PSH,ACK,URG -j DROP
