@@ -18,39 +18,27 @@ iptables -A FORWARD -p tcp --dport 80 -m connbytes --connbytes 12000000:20000000
 
 ### ============================= D - 3 =============================== ###
 # Not more than 10 concurrent connections allowed from outside
-iptables -A FORWARD -d $DMZ -p tcp --syn -m connlimit --connlimit-above 10 --connlimit-mask 32 -j REJECT --reject-with tcp-reset
+iptables -A FORWARD -d $DMZ -p tcp --syn -m connlimit --connlimit-above 10 --connlimit-mask 32 -j DROP
 
 ### ============================= D - 4 =============================== ###
 # Only ICMP echo requests from INSIDE & ICMP stateful errors from any.
 
 # Allow ICMP echo requests from INSIDE
-iptables -A FORWARD -s $DMZ -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A FORWARD -s $DMZ -d $ANY -p icmp --icmp-type echo-request -j ACCEPT
 
 # Allow stateful resopnses and errors from any
-iptables -A FORWARD -p icmp -m conntrack --ctstate ESTABLISHED, RELATED -j ACCEPT
+iptables -A FORWARD -p icmp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
 
 ### ============================= D - 5 =============================== ###
 
 # "SSH opens" from admin machine in Production or External (never the other
 # way around) accepted. Limit SSH attempts to once per 100 ms per source IP (hashlimits)
-iptables -A FORWARD -s $ADMIN_MACHINE_PROD \
-    -p tcp --dport 20           \
-    -m hashlimit tcp            \         
-    --hashlimit-above 100/ms    \
-    --hashlimit-mode srcip      \
-    --hashlimit-name ssh        \                       
-    -m conntrack --ctstate NEW  
-    -j DROP
-
-iptables -A FORWARD -s $ADMIN_MACHINE_EXTERNAL \
-    -p tcp --dport 20           \
-    -m hashlimit tcp            \         
-    --hashlimit-above 100/ms    \
-    --hashlimit-mode srcip      \
-    --hashlimit-name ssh        \                       
-    -m conntrack --ctstate NEW  
-    -j DROP
+iptables -A FORWARD -s $ANY -p tcp --dport 22 -m conntrack --ctstate NEW -m hashlimit --hashlimit-above 10/sec --hashlimit-mode srcip --hashlimit-name ssh -j DROP
+iptables -A FORWARD -s $ADMIN_MACHINE_PROD  -j ACCEPT
+iptables -A FORWARD -s $PROD -j DROP
+iptables -A FORWARD -s $CORP -j DROP
+iptables -A FORWARD -s $ANY -j ACCEPT
 
 ### ============================= D - 6 =============================== ###
 
@@ -63,7 +51,29 @@ iptables -A LOG_INVALID_ACCESS_TO_HOST -j DROP
 # (place rule at the bottom of FORWARD for access to DMZ resources)
 iptables -A FORWARD -j LOG_INVALID_ACCESS_TO_HOST
 
+### ============================= G - 1 =============================== ###
 
+# Block any inbound TCP packets with a well known malware signature
+# http://blog.nintechnet.com/how-to-block-w00tw00t-at-isc-sans-dfind-and-other-web-vulnerability-scanners/
+
+iptables -N MALWARE_DPI
+iptables -A MALWARE_DPI -m string --algo bm --string "cmd.exe" -j DROP
+
+iptables -INPUT -p tcp -j MALWARE_DPI
+iptables -FORWARD -p tcp -j MALWARE_DPI
+
+### ============================= G - 2 =============================== ###
+# Reduce MSS for GRE packet 
+iptables -t mangle -A POSTROUTING -p gre -p tcp -j TCPMSS --set-mss 1000
+
+
+### ============================= G - 5 =============================== ###
+# Drop packet with no TCP timestamp (may be port scanning)
+# http://sharadchhetri.com/2013/06/15/how-to-protect-from-port-scanning-and-smurf-attack-in-linux-server-by-iptables/
+# --> good use of the 'recent' module here
+
+iptables -A INPUT -p tcp --tpc-option ! 8 -j DROP
+iptables -A FORWARD -p tcp --tpc-option ! 8 -j DROP
 
 #### OTHER RULES / TRICKS ####
 ## ** ----------------------------------------------------------------- **
