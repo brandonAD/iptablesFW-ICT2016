@@ -50,8 +50,11 @@
 
 PROD="172.16.0.0/16" #Production Subnet
 DMZ="192.168.0.0/16" #Demilitarized Zone Subnet
+DMZ_SERVER="192.168.0.10" #Demilitarized Zone Server
 CORP="10.0.0.0/16" #Corporate Subnet
-
+CORP_ADMIN="10.0.0.11" #Corporate Administrator
+MCAST="224.0.0.0/4" #Multicast range
+ANY="0.0.0.0/0" #Internet/All
 
 #Reset Iptables' current configuration to default
 
@@ -76,6 +79,16 @@ iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP
 iptables --policy FORWARD DROP
 
+
+
+###################################################
+#                LOGGING RULES
+###################################################
+
+iptables -A logAndDrop --source $ANY -LOG
+iptables -A logAndDrop --source $ANY -DROP
+
+
 ###################################################
 #               PRODUCTION RULES
 ###################################################
@@ -92,6 +105,23 @@ iptables --policy FORWARD DROP
 #               CORPORATE RULES
 ###################################################
 
+####################
+# PART E: OUTGOING
+####################
+# No.1:
+iptables -A corpOUT --protocol tcp --source-port 1025:65535 --destination-port 1025:65535 --jump logAndDrop
+iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1025:65535 --jump logAndDrop
+iptables -A corpOUT --protocol tcp --destination $ANY  --jump ACCEPT
+
+# No.4:
+iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --jump ACCEPT
+# No.5:
+iptables -A corpOUT --protocol udp --destination $ANY --destination-port 53 --jump ACCEPT
+# No.6:
+iptables -A corpOUT --source $MCAST --jump ACCEPT
+
+#Default action if there are no matches
+iptables -A corpOUT --source $ANY --jump logAndDrop
 
 
 ###################################################
