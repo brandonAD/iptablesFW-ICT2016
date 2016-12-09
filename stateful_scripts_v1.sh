@@ -75,6 +75,69 @@ iptables -t mangle -A POSTROUTING -p gre -p tcp -j TCPMSS --set-mss 1000
 iptables -A INPUT -p tcp --tpc-option ! 8 -j DROP
 iptables -A FORWARD -p tcp --tpc-option ! 8 -j DROP
 
+### ============================= G - 6 =============================== ###
+# Create and enforce a black list on the FW that blocks any IP that:
+#   - tries to connect to a well known port (on FW1 or inside) that your servers are not supporting
+#   - scans the FW or an inside host
+
+# Create a hashtable that will store all hosts to blacklist
+ipset -N blockedHosts iphash
+
+# Block all src addresses in the blockedHosts iphash
+iptables -A INPUT -m set --match-set blockedHosts src -j DROP
+
+# tries to connect to a well known port (on FW1 or inside) that your servers are not supporting
+iptables -A FORWARD -o enp0s8 -p tcp -m multiport ! --dports 80,22,443,20 -j SET --add-set blockedHosts src
+iptables -A INPUT   -p tcp           -m multiport ! --dports 80,22,443,20 -j SET --add-set blockedHosts src
+
+# Slow down the user trying to do a portscan.
+iptables -A INPUT -p tcp -i enp0s3 -m state --state NEW -m recent --set
+iptables -A INPUT -p tcp -i enp0s3 -m state --state NEW -m recent --update --seconds 30 --hitcount 10 -j DROP
+iptables -A FORWARD -p tcp -i enp0s3 -m state --state NEW -m recent --set
+iptables -A FORWARD -p tcp -i enp0s3 -m state --state NEW -m recent --update --seconds 30 --hitcount 10 -j DROP
+
+# ========================
+#     Common Scans (UDC)
+#       - adds hosts with common tcp flag patterns for scanning to blacklist
+# ========================
+
+# scans the FW or an inside host
+iptables -N commonScans 
+# These scripts drop common stealth scans by dropping suspicious TCP Flags.
+
+# No flags at all
+iptables -A commonScans   -p tcp --tcp-flags ALL NONE -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags ALL NONE -j DROP
+
+# SYN and FIN are set
+iptables -A commonScans   -p tcp --tcp-flags SYN,FIN SYN,FIN -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+
+# SYN and RST are both set
+iptables -A commonScans   -p tcp --tcp-flags SYN,RST SYN,RST -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
+
+# FIN and RST are both set
+iptables -A commonScans   -p tcp --tcp-flags FIN,RST FIN,RST -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags FIN,RST FIN,RST -j DROP
+
+# Only FIN bit set without expected accompanying ACK
+iptables -A commonScans   -p tcp --tcp-flags ACK,FIN FIN -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags ACK,FIN FIN -j DROP
+
+# PSH is the only bit set without expected accompanying ACK
+iptables -A commonScans   -p tcp --tcp-flags ACK,PSH PSH -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags ACK,PSH PSH -j DROP
+
+# PSH is the only bit set without expected accompanying URG
+iptables -A commonScans   -p tcp --tcp-flags ACK,URG URG -j SET --add-set blockedHosts src
+iptables -A commonScans   -p tcp --tcp-flags ACK,URG URG -j DROP
+
+# Scan INPUT and FORWARD on every packet
+iptables -A INPUT -j commonScans 
+iptables -A FORWARD -j commonScans
+
+
 #### OTHER RULES / TRICKS ####
 ## ** ----------------------------------------------------------------- **
 # ** Good rule to match all packets conntrack doesn't understand **
