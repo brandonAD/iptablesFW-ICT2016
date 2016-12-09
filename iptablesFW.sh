@@ -85,8 +85,8 @@ iptables --policy FORWARD DROP
 #                LOGGING RULES
 ###################################################
 
-iptables -A logAndDrop --source $ANY -LOG
-iptables -A logAndDrop --source $ANY -DROP
+iptables -A logAndDrop --source $ANY --jump LOG
+iptables -A logAndDrop --source $ANY --jump DROP
 
 
 ###################################################
