@@ -121,15 +121,15 @@ iptables -A CORPtoDMZ --jump corpOUT
 iptables -A CORPtoDMZ --jump dmzIN
 iptables -A CORPtoDMZ --jump ACCEPT
 
+	#prodIN is handled at firewall 2
 iptables -A CORPtoPROD --jump corpOUT
-iptables -A CORPtoPROD --jump prodIN
 iptables -A CORPtoPROD --jump ACCEPT
 
 iptables -A CORPtoINET --jump corpOUT
 iptables -A CORPtoINET --jump ACCEPT
 
+	#prodIN is handled at firewall 2
 iptables -A DMZtoPROD --jump dmzOUT
-iptables -A DMZtoPROD --jump prodIN
 iptables -A DMZtoPROD --jump ACCEPT
 
 iptables -A DMZtoCORP --jump dmzOUT
@@ -139,7 +139,7 @@ iptables -A DMZtoCORP --jump ACCEPT
 iptables -A DMZtoINET --jump dmzOUT
 iptables -A DMZtoINET --jump ACCEPT
 
-iptables -A PRODtoCORP --jump prodOUT
+	#prodIN is handled at firewall 2
 iptables -A PRODtoCORP --jump corpIN
 iptables -A PRODtoCORP --jump ACCEPT
 
