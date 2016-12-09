@@ -74,6 +74,13 @@ ipset -N blockedHosts iphash
 #This chain is a pre-check before any forwarding
 iptables -N INIT
 
+#These chains and rules are for Section G, No. 7. Tracking packets in and out of the DMZ
+iptables -N dmzPacketsIn
+iptables -A dmzPacketsIn --source $ANY --jump RETURN
+
+iptables -N dmzPacketsOut
+iptables -A dmzPacketsOut --source $ANY --jump RETURN
+
 #These chains identify specific source IP and destination IP pairs
 iptables -N CORPtoDMZ
 iptables -N CORPtoPROD
@@ -113,6 +120,11 @@ iptables --policy FORWARD DROP
 #	     Firewall FORWARD Chain
 ###################################################
 
+	#These two rules are for Section G, No.7. Tracking DMZ packets in and out.
+iptables -A FORWARD --source $DMZ --destination $ANY --jump dmzPacketsOut
+iptables -A FORWARD --source $ANY --destination $DMZ --jump dmzPacketsIn
+
+	#All packets are subjected to this check
 iptables -A FORWARD --source $ANY --destination $ANY --jump INIT
 
 iptables -A FORWARD --source $CORP --destination $DMZ --jump CORPtoDMZ
