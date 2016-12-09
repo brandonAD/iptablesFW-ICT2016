@@ -50,6 +50,7 @@
 
 PROD="172.16.0.0/16" #Production Subnet
 DMZ="192.168.0.0/16" #Demilitarized Zone Subnet
+DMZ_ADMIN="192.168.0.11" #DMZ Administrator
 DMZ_SERVER="192.168.0.10" #Demilitarized Zone Server
 CORP="10.0.0.0/16" #Corporate Subnet
 CORP_ADMIN="10.0.0.11" #Corporate Administrator
@@ -61,6 +62,9 @@ ANY="0.0.0.0/0" #Internet/All
 iptables -F #Flush IPTables rules
 iptables -Z #Zero out Chain counters
 iptables -X #Deletes all non-default chains
+
+#Create a hashtable that will store all hosts to a blacklist
+ipset -N blockedHosts iphash
 
 #########################################################
 #            Create new User Defined Chains

@@ -321,10 +321,11 @@ iptables -A dmzIN --source $ANY --jump logAndDrop
 # PART E: OUTGOING
 ####################
 
-# No.1,2: INCOMPLETE
+# No.1:
 iptables -A corpOUT --protocol tcp --source-port 1025:65535 --destination-port 1025:65535 --jump logAndDrop
-iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1025:65535 --jump logAndDrop
-iptables -A corpOUT --protocol tcp --destination $ANY  --jump ACCEPT
+
+# No.2:
+iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1:1024 --jump ACCEPT
 
 # No.3:
 iptables -A corpOUT --protocol icmp --destination $PROD --jump ACCEPT
