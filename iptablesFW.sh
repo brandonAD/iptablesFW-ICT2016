@@ -211,27 +211,27 @@ iptables -A logInvalidSSHtoDMZ --jump DROP
 ####################
 
 # No.1
-iptables -A prodOUT --protocol tcp --destination $CORP --destination-port 1:1024 --jump ACCEPT
+iptables -A prodOUT --protocol tcp --destination $CORP --destination-port 1:1024 --jump RETURN
 
 # No.2
-iptables -A prodOUT --protocol tcp --destination $ANY --destination-port 1025:65535 --jump ACCEPT
+iptables -A prodOUT --protocol tcp --destination $ANY --destination-port 1025:65535 --jump RETURN
 
 # No.3
-iptables -A prodOUT --protocol udp --destination-port 53 --jump ACCEPT
-iptables -A prodIN --protocol udp --source-port 53 --jump ACCEPT
+iptables -A prodOUT --protocol udp --destination-port 53 --jump RETURN
+iptables -A prodIN --protocol udp --source-port 53 --jump RETURN
 
 # No.4
-iptables -A prodOUT --protocol tcp --destination $DMZ --destination-port 1:65535 --jump ACCEPT
+iptables -A prodOUT --protocol tcp --destination $DMZ --destination-port 1:65535 --jump RETURN
 
 # No.5
-iptables -A prodOUT --protocol icmp --icmp-type 8 --destination $ANY --jump ACCEPT
+iptables -A prodOUT --protocol icmp --icmp-type 8 --destination $ANY --jump RETURN
 
 # No.6
 iptables -I prodOUT --protocol udp -m conntrack --ctstate INVALID --jump logAndDrop
 iptables -I prodOUT --protocol tcp -m conntrack --ctstate INVALID --jump logAndDrop
 
 # No.7
-iptables -A prodIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump ACCEPT
+iptables -A prodIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump RETURN
 
 #Default action if there are no matches
 iptables -A prodIN --source $ANY --jump logAndDrop
@@ -241,19 +241,19 @@ iptables -A prodIN --source $ANY --jump logAndDrop
 ####################
 
 # No.1:
-iptables -A prodIN --protocol tcp --source 10.0.25.0/24 --jump ACCEPT
+iptables -A prodIN --protocol tcp --source 10.0.25.0/24 --jump RETURN
 
 # No.2:
-iptables -A prodIN --protocol tcp --source $CORP --destination-port 443 --jump ACCEPT
+iptables -A prodIN --protocol tcp --source $CORP --destination-port 443 --jump RETURN
 
 # No 3:
-iptables -A prodIN --protocol tcp --destination-port 22 --source $DMZ -m limit --limit 6666/second
+iptables -A prodIN --protocol tcp --destination-port 22 --source $DMZ -m limit --limit 6666/second --jump RETURN
 
 # No.4:
-iptables -A prodIN --source $DMZ --destination $MCAST --jump ACCEPT
+iptables -A prodIN --source $DMZ --destination $MCAST --jump RETURN
 
 # No.5:
-iptables -A prodIN --protocol icmp --icmp-type 8 --source $DMZ,$CORP -j ACCEPT
+iptables -A prodIN --protocol icmp --icmp-type 8 --source $DMZ,$CORP -j RETURN
 
 #Default action if there are no matches
 iptables -A prodIN --source $ANY --jump logAndDrop
@@ -267,7 +267,7 @@ iptables -A prodIN --source $ANY --jump logAndDrop
 ####################
 
 # No.1a:
-iptables -A dmzOUT --protocol tcp --destination-port 22 --destination $PROD_ADMIN -j ACCEPT
+iptables -A dmzOUT --protocol tcp --destination-port 22 --destination $PROD_ADMIN -j RETURN
 
 # No.1b:
 iptables -A INPUT -i lo -j ACCEPT
@@ -282,7 +282,7 @@ iptables -A dmzOUT --source $ANY --jump DROP
 ####################
 
 # No.1:
-iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 80,25,443 -j ACCEPT
+iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 80,25,443 -j RETURN
 
 # No.2:
 iptables -A dmzIN --protocol tcp --source $ANY --destination-port 80 -m connbytes --connbytes 12000000:20000000 -connbytes-mode bytes -j logAndDrop
@@ -292,20 +292,20 @@ iptables -A dmzIN --protocol tcp --syn -m connlimit --connlimit-above 10 -connli
 
 # No.4a:
 	#Allow ICMP echo requests from INSIDE. This is an outgoing command in the "incoming" section
-iptables -I dmzOUT --protocol icmp --icmp-type echo-request --jump ACCEPT
+iptables -I dmzOUT --protocol icmp --icmp-type echo-request --jump RETURN
 
 # No.4b:
-iptables -A dmzIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump ACCEPT
+iptables -A dmzIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump RETURN
 
 # No.5:
 	#If SSH requests exceed 10 per second, drop the packet (on a per-IP basis)
 iptables -A dmzIN --source $ANY --protocol tcp --destination-port 22 -m conntrack --ctstate NEW -m hashlimit --hashlimit-above 10/s --hashlimit-mode srcip --hashlimit-name SSH --jump logAndDrop
-iptables -A dmzIN --source $PROD_ADMIN --protocol tcp --destination-port 22 --jump ACCEPT
+iptables -A dmzIN --source $PROD_ADMIN --protocol tcp --destination-port 22 --jump RETURN
 	#The drops below disallow SSH from the PROD and CORP subnets, excluding the admin machine allowed above
 iptables -A dmzIN --source $PROD --protocol tcp --destination-port 22 --jump logAndDrop
 iptables -A dmzIN --source $CORP --protocol tcp --destination-port 22 --jump logAndDrop
 	#The below rule will catch internet SSH traffic
-iptables -A dmzIN --source $ANY --protocol tcp --destination-port 22 --jump ACCEPT
+iptables -A dmzIN --source $ANY --protocol tcp --destination-port 22 --jump RETURN
 
 # No.6:
 iptables -I dmzIN --protocol tcp --source $DMZ_ADMIN --destination-port 22 -m conntrack --ctstate INVALID --jump logInvalidSSHtoDMZ
@@ -325,26 +325,26 @@ iptables -A dmzIN --source $ANY --jump logAndDrop
 iptables -A corpOUT --protocol tcp --source-port 1025:65535 --destination-port 1025:65535 --jump logAndDrop
 
 # No.2:
-iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1:1024 --jump ACCEPT
+iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1:1024 --jump RETURN
 
 # No.3:
-iptables -A corpOUT --protocol icmp --destination $PROD --jump ACCEPT
+iptables -A corpOUT --protocol icmp --destination $PROD --jump RETURN
 	#ICMP type 8 is an echo-request
-iptables -A corpOUT --protocol icmp --icmp-type 8 --destination $DMZ --jump ACCEPT
+iptables -A corpOUT --protocol icmp --icmp-type 8 --destination $DMZ --jump RETURN
 
 # No.4:
-iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --destination-port 22 --jump ACCEPT
+iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --destination-port 22 --jump RETURN
 
 # No.5:
-iptables -A corpOUT --protocol udp --destination $ANY --destination-port 53 --jump ACCEPT
+iptables -A corpOUT --protocol udp --destination $ANY --destination-port 53 --jump RETURN
 
 # No.6:
 iptables -A corpOUT --destination $MCAST -out-interface enp0s3 --jump logAndDrop
-iptables -A corpOUT --destination $MCAST -out-interface enp0s8 --jump ACCEPT
+iptables -A corpOUT --destination $MCAST -out-interface enp0s8 --jump RETURN
 
 # Rule for allowing SSH access from the internet to 10.0.16.0/20
-	#SSH attempts from DMZ and PROD are dropped while incoming so addition drop rules are not necessary here
-iptables -A corpOUT --protocol tcp --source 10.0.16.0/20 --source-port 22 --destination $ANY --jump ACCEPT
+	#SSH attempts from DMZ and PROD are dropped while incoming so additional drop rules are not necessary here
+iptables -A corpOUT --protocol tcp --source 10.0.16.0/20 --source-port 22 --destination $ANY --jump RETURN
 
 #Default action if there are no matches
 iptables -A corpOUT --source $ANY --jump logAndDrop
@@ -355,14 +355,14 @@ iptables -A corpOUT --source $ANY --jump logAndDrop
 
 # No.1:
 	#Allowing Section A, No.1 into Corporate
-iptables -A corpIN --protocol tcp --source $PROD --destination-port 1:1024 --jump ACCEPT
+iptables -A corpIN --protocol tcp --source $PROD --destination-port 1:1024 --jump RETURN
 	#Allowing Section A, No.5 into Corporate
 iptables -A corpIN --source $PROD --protocol icmp --icmp-type icmp-request
 
 # No.2:
 iptables -A corpIN --protocol tcp --source $DMZ --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
 iptables -A corpIN --protocol tcp --source $PROD --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
-iptables -A corpIN --protocol tcp --source $ANY --destination 10.0.16.0/20 --destination-port 22 --jump ACCEPT
+iptables -A corpIN --protocol tcp --source $ANY --destination 10.0.16.0/20 --destination-port 22 --jump RETURN
 
 #Default action if there are no matches
 iptables -A corpIN --source $ANY --jump logAndDrop
@@ -427,7 +427,7 @@ iptables -A commonScans --protocol tcp --tcp-flags ACK,PSH PSH --jump logAndDrop
 iptables -A commonScans --protocol tcp --tcp-flags ACK,URG URG --jump SET --add-set blockedHosts src
 iptables -A commonScans --protocol tcp --tcp-flags ACK,URG URG --jump logAndDrop
 
-	#Scan INPUT and FORWARD on every packet
+	#Scan INPUT and FORWARD on every packet. The "-I" is to insert it at the top of the chain.
 iptables -I INIT -j commonScans
 iptables -A INPUT -j commonScans
 
