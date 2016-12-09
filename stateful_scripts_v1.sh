@@ -1,7 +1,24 @@
 #!/bin/bash
 
-### ============================= D - 3 =============================== ###
 
+### ============================= B - 3 =============================== ###
+# SSH connections from DMZ - but rate transfer threshbold at 10 MB (per second?)
+
+# https://www.cyberciti.biz/faq/linux-traffic-shaping-using-tc-to-control-http-traffic/
+# Limiting Module: http://www.oocities.org/youssef116/writing/ratelim.html
+
+# Approach #1) consider max 1500 bytes, = to 6666 per second
+iptables -A -p tcp --dport 22 -s $DMZ -m limit --limit 6666/second 
+
+
+### ============================= D - 2 =============================== ###
+# All outside connections on port 80 are terminated if they exceeed 12 MB
+# - we need to use connbytes
+iptables -A FORWARD -p tcp --dport 80 -m connbytes --connbytes 12000000:20000000 --conbytes-mode bytes -j DROP
+
+### ============================= D - 3 =============================== ###
+# Not more than 10 concurrent connections allowed from outside
+iptables -A FORWARD -d $DMZ -p tcp --syn -m connlimit --connlimit-above 10 --connlimit-mask 32 -j REJECT --reject-with tcp-reset
 
 ### ============================= D - 4 =============================== ###
 # Only ICMP echo requests from INSIDE & ICMP stateful errors from any.
@@ -46,3 +63,17 @@ iptables -A LOG_INVALID_ACCESS_TO_HOST -j DROP
 # (place rule at the bottom of FORWARD for access to DMZ resources)
 iptables -A FORWARD -j LOG_INVALID_ACCESS_TO_HOST
 
+
+
+#### OTHER RULES / TRICKS ####
+## ** ----------------------------------------------------------------- **
+# ** Good rule to match all packets conntrack doesn't understand **
+
+iptables -N INVALID_PKTS
+# log
+iptables -N INVALID_PKTS -A Inval_pkts -m limit --limit 10/s -j LOG --log-prefix "INVALID: " --log-level 7 --log-tcp-sequence --log-tcp-options --log-ip-options
+# drop
+iptables -N INVALID_PKTS -A Inval_pkts-p tcp -m limit --limit 10/s -j REJECT --reject-with tcp-reset
+iptables -A FORWARD -m conntrack --ctstate INVALID -j INVALID_PKTS
+# this matches all packets that conntrack doesn't understand (high level safety net)
+## ** ----------------------------------------------------------------- **
