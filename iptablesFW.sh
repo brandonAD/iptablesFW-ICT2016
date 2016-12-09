@@ -108,22 +108,53 @@ iptables -A logAndDrop --source $ANY --jump DROP
 ####################
 # PART E: OUTGOING
 ####################
-# No.1:
+
+# No.1,2: INCOMPLETE
 iptables -A corpOUT --protocol tcp --source-port 1025:65535 --destination-port 1025:65535 --jump logAndDrop
 iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1025:65535 --jump logAndDrop
 iptables -A corpOUT --protocol tcp --destination $ANY  --jump ACCEPT
 
+# No.3:
+iptables -A corpOUT --protocol icmp --destination $PROD --jump ACCEPT
+	#ICMP type 8 is an echo-request
+iptables -A corpOUT --protocol icmp --icmp-type 8 --destination $DMZ --jump ACCEPT
+
 # No.4:
-iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --jump ACCEPT
+iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --destination-port 22 --jump ACCEPT
+
 # No.5:
 iptables -A corpOUT --protocol udp --destination $ANY --destination-port 53 --jump ACCEPT
+
 # No.6:
-iptables -A corpOUT --source $MCAST --jump ACCEPT
+iptables -A corpOUT --destination $MCAST -out-interface enp0s3 --jump logAndDrop
+iptables -A corpOUT --destination $MCAST -out-interface enp0s8 --jump ACCEPT
 
 #Default action if there are no matches
 iptables -A corpOUT --source $ANY --jump logAndDrop
 
+####################
+# PART F: INCOMING
+####################
 
+# No.1,2: INCOMPLETE
+
+# No.3:
+iptables -A corpIN --protocol icmp --source $PROD --jump ACCEPT
+	#ICMP type 0 is an echo-reply
+iptables -A corpIN --protocol icmp --icmp-type 0 --source $DMZ --jump ACCEPT
+
+# No.4:
+iptables -A corpIN --protocol tcp --destination $CORP_ADMIN --source $DMZ_SERVER,10.0.0.1,192.168.0.2 --source-port 22 --jump ACCEPT
+
+# No.5:
+iptables -A corpIN --protocol udp --source $ANY --source-port 53 --jump ACCEPT
+
+# No.6:
+iptables -A corpIN --destination $MCAST --in-interface enp0s3 --jump logAndDrop
+iptables -A corpIN --destination $MCAST --in-interface enp0s9 --jump ACCEPT
+
+#Default action if there are no matches
+iptables -A corpOUT --source $ANY --jump logAndDrop
 ###################################################
 #                 NAT RULES
 ###################################################
