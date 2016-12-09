@@ -63,7 +63,29 @@ iptables -A LOG_INVALID_ACCESS_TO_HOST -j DROP
 # (place rule at the bottom of FORWARD for access to DMZ resources)
 iptables -A FORWARD -j LOG_INVALID_ACCESS_TO_HOST
 
+### ============================= G - 1 =============================== ###
 
+# Block any inbound TCP packets with a well known malware signature
+# http://blog.nintechnet.com/how-to-block-w00tw00t-at-isc-sans-dfind-and-other-web-vulnerability-scanners/
+
+iptables -N MALWARE_DPI
+iptables -A MALWARE_DPI -m string --algo bm --string "cmd.exe" -j DROP
+
+iptables -INPUT -p tcp -j MALWARE_DPI
+iptables -FORWARD -p tcp -j MALWARE_DPI
+
+### ============================= G - 2 =============================== ###
+# Reduce MSS for GRE packet 
+iptables -t mangle -A POSTROUTING -p gre -p tcp -j TCPMSS --set-mss 1000
+
+
+### ============================= G - 5 =============================== ###
+# Drop packet with no TCP timestamp (may be port scanning)
+# http://sharadchhetri.com/2013/06/15/how-to-protect-from-port-scanning-and-smurf-attack-in-linux-server-by-iptables/
+# --> good use of the 'recent' module here
+
+iptables -A INPUT -p tcp --tpc-option ! 8 -j DROP
+iptables -A FORWARD -p tcp --tpc-option ! 8 -j DROP
 
 #### OTHER RULES / TRICKS ####
 ## ** ----------------------------------------------------------------- **
@@ -77,3 +99,5 @@ iptables -N INVALID_PKTS -A Inval_pkts-p tcp -m limit --limit 10/s -j REJECT --r
 iptables -A FORWARD -m conntrack --ctstate INVALID -j INVALID_PKTS
 # this matches all packets that conntrack doesn't understand (high level safety net)
 ## ** ----------------------------------------------------------------- **
+
+
