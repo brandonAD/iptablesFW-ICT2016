@@ -50,8 +50,11 @@
 
 PROD="172.16.0.0/16" #Production Subnet
 DMZ="192.168.0.0/16" #Demilitarized Zone Subnet
+DMZ_SERVER="192.168.0.10" #Demilitarized Zone Server
 CORP="10.0.0.0/16" #Corporate Subnet
-
+CORP_ADMIN="10.0.0.11" #Corporate Administrator
+MCAST="224.0.0.0/4" #Multicast range
+ANY="0.0.0.0/0" #Internet/All
 
 #Reset Iptables' current configuration to default
 
@@ -59,8 +62,19 @@ iptables -F #Flush IPTables rules
 iptables -Z #Zero out Chain counters
 iptables -X #Deletes all non-default chains
 
-#Create new User Defined Chains
+#########################################################
+#            Create new User Defined Chains
+#########################################################
 
+#These chains identify specific source IP and destination IP pairs
+iptables -N CORPtoPROD
+iptables -N DMZtoPROD
+iptables -N PRODtoDMZ
+iptables -N PRODtoCORP
+iptables -N PRODtoINET
+iptables -N INETtoPROD
+
+#These chains will be used for actual traffic filtration
 iptables -N prodIN
 iptables -N prodOUT
 iptables -N dmzIN
@@ -75,6 +89,45 @@ iptables -N logAndDrop
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP
 iptables --policy FORWARD DROP
+
+
+###################################################
+#            Firewall FORWARD Chain
+###################################################
+
+iptables -A FORWARD --source $CORP --destination $PROD --jump CORPtoPROD
+iptables -A FORWARD --source $DMZ --destination  $PROD --jump DMZtoPROD
+iptables -A FORWARD --source $PROD --destination $DMZ --jump PRODtoDMZ
+iptables -A FORWARD --source $PROD --destination $CORP --jump PRODtoCORP
+iptables -A FORWARD --source $PROD --destination $ANY --jump PRODtoINET
+iptables -A FORWARD --source $ANY --destination $PROD --jump INETtoPROD
+
+###################################################
+#          SOURCE DESTINATION PAIR UDCs
+###################################################
+
+iptables -A CORPtoPROD --jump corpOUT
+iptables -A CORPtoPROD --jump prodIN
+itpables -A CORPtoPROD --jump ACCEPT
+
+iptables -A DMZtoPROD --jump dmzOUT
+iptables -A DMZtoPROD --jump prodIN
+iptables -A DMZtoPROD --jump ACCEPT
+
+iptables -A PRODtoDMZ --jump prodOUT
+iptables -A PRODtoDMZ --jump dmzIN
+iptables -A PRODtoDMZ --jump ACCEPT
+
+iptables -A PRODtoCORP --jump prodOUT
+iptables -A PRODtoCORP --jump corpIN
+iptables -A PRODtoCORP --jump ACCEPT
+
+iptables -A PRODtoINET --jump prodOUT
+iptables -A PRODtoINET --jump ACCEPT
+
+iptables -A INETtoPROD --jump prodIN
+iptables -A INETtoPROD --jump ACCEPT
+
 
 ###################################################
 #               PRODUCTION RULES
