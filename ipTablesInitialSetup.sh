@@ -41,6 +41,7 @@
 #       Routing Configuration
 # =================================
 
+# echo "1" > /proc/sys/net/ipv4/ip_forward
 # route add -net 172.16.0.0 netmask 255.255.0.0 gw 192.168.0.2 dev enp0s8
 # route add -net 10.0.0.0 netmask 255.255.0.0 dev enp0s9
 
@@ -111,7 +112,7 @@ iptables -A INPUT -s 0.0.0.0/0 -j ACCEPT
 # =================================
 #       Routing Configuration
 # =================================
-
+# echo "1" > /proc/sys/net/ipv4/ip_forward
 # route add -net 0.0.0.0 netmask 0.0.0.0 gw 192.168.0.1 dev enp0s8
 
 # =================================

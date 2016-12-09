@@ -443,6 +443,9 @@ iptables -A INPUT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLog
 iptables -A INIT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
 iptables -A INPUT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
 
+# No.9:
+	#The script showing routing tables and configuration is separate. "IPTablesInitialSetup.sh"
+
 ###################################################
 #                 NAT RULES
 ###################################################
