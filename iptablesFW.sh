@@ -111,6 +111,17 @@ iptables -N logInvalidSSHtoDMZ
 #This chain is for adding blocked hosts to a blacklist
 iptables -N commonScans
 
+#Logging with a Silent Drop
+iptables -N silentLogMalformedPackets
+iptables -A silentLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - Silent Drop]: "
+iptables -A silentLogMalformedPackets -j DROP
+
+#Logging with an ICMP Response
+iptables -N icmpLogMalformedPackets
+iptables -A icmpLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - ICMP Error Sent]: "
+iptables -A icmpLogMalformedPackets -j REJECT -reject-with icmp-net-prohibited
+
+
 #Set IPTables Policy for DEFAULT DENY
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP
@@ -420,7 +431,16 @@ iptables -I INIT -j commonScans
 iptables -A INPUT -j commonScans
 
 # No.7:
-iptables
+	#The script to track is run separately. "DMZpacketCount.sh"
+
+# No.8:
+	#ICMP response to CORP and PROD hosts
+iptables -A INIT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
+
+	#stealth mode drop method to outside hosts
+iptables -A INIT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
+iptables -A INPUT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
 
 ###################################################
 #                 NAT RULES
