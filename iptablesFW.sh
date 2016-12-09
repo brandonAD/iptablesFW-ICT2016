@@ -49,6 +49,7 @@
 #Define variables
 
 PROD="172.16.0.0/16" #Production Subnet
+PROD_ADMIN="172.16.0.11/16" #Production Administrator
 DMZ="192.168.0.0/16" #Demilitarized Zone Subnet
 DMZ_SERVER="192.168.0.10" #Demilitarized Zone Server
 CORP="10.0.0.0/16" #Corporate Subnet
@@ -212,12 +213,29 @@ iptables -A prodIN --protocol icmp --icmp-type 8 --source $DMZ,$CORP -j ACCEPT
 #Default action if there are no matches
 iptables -A prodIN --source $ANY --jump logAndDrop
 
-
 ###################################################
-#		  DMZ RULES
+#                 DMZ RULES
 ###################################################
 
+####################
+# PART C: OUTGOING
+####################
 
+# No.1:
+iptables -A dmzOUT --protocol tcp --destination-port 22 --destination $PROD_ADMIN -j ACCEPT
+
+# No.2:
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+####################
+# PART D: INCOMING
+####################
+
+# No.1:
+iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 80,25,443 -j ACCEPT
+
+#
 
 ###################################################
 #               CORPORATE RULES
@@ -281,6 +299,19 @@ iptables -A corpIn --protocol tcp --source $ANY --destination 10.0.16.0/20 --des
 
 #Default action if there are no matches
 iptables -A corpOUT --source $ANY --jump logAndDrop
+
+###################################################
+#               OTHER  RULES
+###################################################
+
+####################
+# PART G
+####################
+
+# No.3:
+
+iptables -A INPUT --in-interface enp0s3 --source 172.16.0.0/16,192.168.0.0/16 -j logAndDrop
+
 
 ###################################################
 #                 NAT RULES
