@@ -49,8 +49,9 @@
 #Define variables
 
 PROD="172.16.0.0/16" #Production Subnet
-PROD_ADMIN="172.16.0.11/16" #Production Administrator
+PROD_ADMIN="172.16.0.11" #Production Administrator
 DMZ="192.168.0.0/16" #Demilitarized Zone Subnet
+DMZ_ADMIN="192.168.0.11"
 DMZ_SERVER="192.168.0.10" #Demilitarized Zone Server
 CORP="10.0.0.0/16" #Corporate Subnet
 CORP_ADMIN="10.0.0.11" #Corporate Administrator
@@ -91,6 +92,8 @@ iptables -N corpOUT
 #This chain is to eliminate the need for two commands for logging and dropping
 iptables -N logAndDrop
 
+#This chain is for Section D, No.6
+iptables -N logInvalidSSHtoDMZ
 
 #Set IPTables Policy for DEFAULT DENY
 iptables --policy INPUT DROP
@@ -162,6 +165,8 @@ iptables -A INETtoCORP --jump ACCEPT
 iptables -A logAndDrop --source $ANY --jump LOG
 iptables -A logAndDrop --source $ANY --jump DROP
 
+iptables -A logInvalidSSHtoDMZ -m limit --limit 4/minute --limit-burst 6 --jump LOG --log-prefix "[INVALID DMZ HOST ACCES]"
+iptables -A logInvalidSSHtoDMZ --jump DROP
 
 ###################################################
 #               PRODUCTION RULES
@@ -194,6 +199,9 @@ iptables -I prodOUT --protocol tcp -m conntrack --ctstate INVALID --jump logAndD
 # No.7
 iptables -A prodIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump ACCEPT
 
+#Default action if there are no matches
+iptables -A prodIN --source $ANY --jump logAndDrop
+
 ####################
 # PART B: INCOMING
 ####################
@@ -203,6 +211,9 @@ iptables -A prodIN --protocol tcp --source 10.0.25.0/24 --jump ACCEPT
 
 # No.2:
 iptables -A prodIN --protocol tcp --source $CORP --destination-port 443 --jump ACCEPT
+
+# No 3:
+iptables -A prodIN --protocol tcp --destination-port 22 --source $DMZ -m limit --limit 6666/second
 
 # No.4:
 iptables -A prodIN --source $DMZ --destination $MCAST --jump ACCEPT
@@ -221,12 +232,16 @@ iptables -A prodIN --source $ANY --jump logAndDrop
 # PART C: OUTGOING
 ####################
 
-# No.1:
+# No.1a:
 iptables -A dmzOUT --protocol tcp --destination-port 22 --destination $PROD_ADMIN -j ACCEPT
 
-# No.2:
+# No.1b:
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
+
+#Default action; detailed logging is enabled on this chain
+iptables -A dmzOUT --source $ANY --jump LOG --log-level 7 --log-prefix "Verbose Logging (DMZ OUTBOUND): "
+iptables -A dmzOUT --source $ANY --jump DROP
 
 ####################
 # PART D: INCOMING
@@ -235,7 +250,34 @@ iptables -A OUTPUT -o lo -j ACCEPT
 # No.1:
 iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 80,25,443 -j ACCEPT
 
-#
+# No.2:
+iptables -A dmzIN --protocol tcp --source $ANY --destination-port 80 -m connbytes --connbytes 12000000:20000000 -connbytes-mode bytes -j logAndDrop
+
+# No.3:
+iptables -A dmzIN --protocol tcp --syn -m connlimit --connlimit-above 10 -connlimit-mask 32 -j logAndDrop
+
+# No.4a:
+	#Allow ICMP echo requests from INSIDE. This is an outgoing command in the "incoming" section
+iptables -I dmzOUT --protocol icmp --icmp-type echo-request --jump ACCEPT
+
+# No.4b:
+iptables -A dmzIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump ACCEPT
+
+# No.5:
+	#If SSH requests exceed 10 per second, drop the packet (on a per-IP basis)
+iptables -A dmzIN --source $ANY --protocol tcp --destination-port 22 -m conntrack --ctstate NEW -m hashlimit --hashlimit-above 10/s --hashlimit-mode srcip --hashlimit-name SSH --jump logAndDrop
+iptables -A dmzIN --source $PROD_ADMIN --protocol tcp --destination-port 22 --jump ACCEPT
+	#The drops below disallow SSH from the PROD and CORP subnets, excluding the admin machine allowed above
+iptables -A dmzIN --source $PROD --protocol tcp --destination-port 22 --jump logAndDrop
+iptables -A dmzIN --source $CORP --protocol tcp --destination-port 22 --jump logAndDrop
+	#The below rule will catch internet SSH traffic
+iptables -A dmzIN --source $ANY --protocol tcp --destination-port 22 --jump ACCEPT
+
+# No.6:
+iptables -I dmzIN --protocol tcp --source $DMZ_ADMIN --destination-port 22 -m conntrack --ctstate INVALID --jump logInvalidSSHtoDMZ
+
+#Default action if there are no matches
+iptables -A dmzIN --source $ANY --jump logAndDrop
 
 ###################################################
 #               CORPORATE RULES
@@ -298,7 +340,7 @@ iptables -A corpIn --protocol tcp --source $PROD --destination 10.0.16.0/20 --de
 iptables -A corpIn --protocol tcp --source $ANY --destination 10.0.16.0/20 --destination-port 22 --jump ACCEPT
 
 #Default action if there are no matches
-iptables -A corpOUT --source $ANY --jump logAndDrop
+iptables -A corpIN --source $ANY --jump logAndDrop
 
 ###################################################
 #               OTHER  RULES
