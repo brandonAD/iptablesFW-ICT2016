@@ -207,7 +207,7 @@ iptables -A prodIN --protocol tcp --source $CORP --destination-port 443 --jump A
 iptables -A prodIN --source $DMZ --destination $MCAST --jump ACCEPT
 
 # No.5:
-
+iptables -A prodIN --protocol icmp --icmp-type 8 --source $DMZ,$CORP -j ACCEPT
 
 #Default action if there are no matches
 iptables -A prodIN --source $ANY --jump logAndDrop
