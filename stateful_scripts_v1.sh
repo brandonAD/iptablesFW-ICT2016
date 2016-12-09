@@ -18,39 +18,27 @@ iptables -A FORWARD -p tcp --dport 80 -m connbytes --connbytes 12000000:20000000
 
 ### ============================= D - 3 =============================== ###
 # Not more than 10 concurrent connections allowed from outside
-iptables -A FORWARD -d $DMZ -p tcp --syn -m connlimit --connlimit-above 10 --connlimit-mask 32 -j REJECT --reject-with tcp-reset
+iptables -A FORWARD -d $DMZ -p tcp --syn -m connlimit --connlimit-above 10 --connlimit-mask 32 -j DROP
 
 ### ============================= D - 4 =============================== ###
 # Only ICMP echo requests from INSIDE & ICMP stateful errors from any.
 
 # Allow ICMP echo requests from INSIDE
-iptables -A FORWARD -s $DMZ -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A FORWARD -s $DMZ -d $ANY -p icmp --icmp-type echo-request -j ACCEPT
 
 # Allow stateful resopnses and errors from any
-iptables -A FORWARD -p icmp -m conntrack --ctstate ESTABLISHED, RELATED -j ACCEPT
+iptables -A FORWARD -p icmp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
 
 ### ============================= D - 5 =============================== ###
 
 # "SSH opens" from admin machine in Production or External (never the other
 # way around) accepted. Limit SSH attempts to once per 100 ms per source IP (hashlimits)
-iptables -A FORWARD -s $ADMIN_MACHINE_PROD \
-    -p tcp --dport 20           \
-    -m hashlimit tcp            \         
-    --hashlimit-above 100/ms    \
-    --hashlimit-mode srcip      \
-    --hashlimit-name ssh        \                       
-    -m conntrack --ctstate NEW  
-    -j DROP
-
-iptables -A FORWARD -s $ADMIN_MACHINE_EXTERNAL \
-    -p tcp --dport 20           \
-    -m hashlimit tcp            \         
-    --hashlimit-above 100/ms    \
-    --hashlimit-mode srcip      \
-    --hashlimit-name ssh        \                       
-    -m conntrack --ctstate NEW  
-    -j DROP
+iptables -A FORWARD -s $ANY -p tcp --dport 22 -m conntrack --ctstate NEW -m hashlimit --hashlimit-above 10/sec --hashlimit-mode srcip --hashlimit-name ssh -j DROP
+iptables -A FORWARD -s $ADMIN_MACHINE_PROD  -j ACCEPT
+iptables -A FORWARD -s $PROD -j DROP
+iptables -A FORWARD -s $CORP -j DROP
+iptables -A FORWARD -s $ANY -j ACCEPT
 
 ### ============================= D - 6 =============================== ###
 
