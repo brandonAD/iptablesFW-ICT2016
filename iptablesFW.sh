@@ -64,9 +64,15 @@ iptables -F #Flush IPTables rules
 iptables -Z #Zero out Chain counters
 iptables -X #Deletes all non-default chains
 
+#Create a hashtable that will store all hosts to a blacklist
+ipset -N blockedHosts iphash
+
 #########################################################
 #	     Create new User Defined Chains
 #########################################################
+
+#This chain is a pre-check before any forwarding
+iptables -N INIT
 
 #These chains identify specific source IP and destination IP pairs
 iptables -N CORPtoDMZ
@@ -95,6 +101,9 @@ iptables -N logAndDrop
 #This chain is for Section D, No.6
 iptables -N logInvalidSSHtoDMZ
 
+#This chain is for adding blocked hosts to a blacklist
+iptables -N commonScans
+
 #Set IPTables Policy for DEFAULT DENY
 iptables --policy INPUT DROP
 iptables --policy OUTPUT DROP
@@ -103,6 +112,8 @@ iptables --policy FORWARD DROP
 ###################################################
 #	     Firewall FORWARD Chain
 ###################################################
+
+iptables -A FORWARD --source $ANY --destination $ANY --jump INIT
 
 iptables -A FORWARD --source $CORP --destination $DMZ --jump CORPtoDMZ
 iptables -A FORWARD --source $CORP --destination $PROD --jump CORPtoPROD
@@ -319,25 +330,15 @@ iptables -A corpOUT --source $ANY --jump logAndDrop
 ####################
 
 # No.1:
-	# Inverse of Outgoing No.3
-iptables -A corpIN --protocol icmp --source $PROD --jump ACCEPT
-		#ICMP type 0 is an echo-reply
-iptables -A corpIN --protocol icmp --icmp-type 0 --source $DMZ --jump ACCEPT
-
-	# Inverse of Outgoing No.4:
-iptables -A corpIN --protocol tcp --destination $CORP_ADMIN --source $DMZ_SERVER,10.0.0.1,192.168.0.2 --source-port 22 --jump ACCEPT
-
-	# Inverse of Outgoing No.5:
-iptables -A corpIN --protocol udp --source $ANY --source-port 53 --jump ACCEPT
-
-	# Inverse of Outgoing No.6:
-iptables -A corpIN --destination $MCAST --in-interface enp0s3 --jump logAndDrop
-iptables -A corpIN --destination $MCAST --in-interface enp0s9 --jump ACCEPT
+	#Allowing Section A, No.1 into Corporate
+iptables -A corpIN --protocol tcp --source $PROD --destination-port 1:1024 --jump ACCEPT
+	#Allowing Section A, No.5 into Corporate
+iptables -A corpIN --source $PROD --protocol icmp --icmp-type icmp-request
 
 # No.2:
-iptables -A corpIn --protocol tcp --source $DMZ --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
-iptables -A corpIn --protocol tcp --source $PROD --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
-iptables -A corpIn --protocol tcp --source $ANY --destination 10.0.16.0/20 --destination-port 22 --jump ACCEPT
+iptables -A corpIN --protocol tcp --source $DMZ --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
+iptables -A corpIN --protocol tcp --source $PROD --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
+iptables -A corpIN --protocol tcp --source $ANY --destination 10.0.16.0/20 --destination-port 22 --jump ACCEPT
 
 #Default action if there are no matches
 iptables -A corpIN --source $ANY --jump logAndDrop
@@ -350,10 +351,64 @@ iptables -A corpIN --source $ANY --jump logAndDrop
 # PART G
 ####################
 
-# No.3:
+# No.1:
+iptables -A INIT --in-interface enp0s3 -m string --algo bm --string "cmd.exe" --jump logAndDrop
 
+# No.2:
+iptables -t mangle -A INIT --out-interface enp0s3 --protocol gre -jump TCPMSS --set-mss 1000
+
+# No.3:
 iptables -A INPUT --in-interface enp0s3 --source 172.16.0.0/16,192.168.0.0/16 -j logAndDrop
 
+# No.4:
+	#What is an RFP Check?
+
+# No.5:
+iptables -A INIT --source $ANY --protocol tcp ! --tcp-option 8 -logAndDrop
+
+# No.6:
+	#Block all source addresses in the blockedHosts iphash (to Firewall or Internal)
+iptables -A INPUT -m set --match-set blockedHosts src --jump logAndDrop
+iptables -A INIT -m set --match-set blockedHosts sec --jump logAndDrop
+
+	#Tries to connect to a well known port that your servers are not supporting
+iptables -A INPUT --protocol tcp -m multiport ! --dports 80,22,443,20 --jump SET --add-set blockedHosts src
+iptables -A INIT --out-interface enp0s8 --protocol tcp -m multiport ! --dports 80,22,443,20 --jump SET --add-set blockedHosts src
+
+	#No flags set at all
+iptables -A commonScans --protocol tcp --tcp-flags ALL NONE --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags ALL NONE --jump logAndDrop
+
+	#SYN and FIN both set
+iptables -A commonScans --protocol tcp --tcp-flags SYN,FIN SYN,FIN --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags SYN,FIN SYN,FIN --jump logAndDrop
+
+	#SYN and RST both set
+iptables -A commonScans --protocol tcp --tcp-flags SYN,RST SYN,RST --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags SYN,RST SYN,RST --jump logAndDrop
+
+	#FIN and RST both set
+iptables -A commonScans --protocol tcp --tcp-flags FIN,RST FIN,RST --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags FIN,RST FIN,RST --jump logAndDrop
+
+	#Only FIN bit set without expected accompanying ACK
+iptables -A commonScans --protocol tcp --tcp-flags ACK,FIN FIN --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags ACK,FIN FIN --jump logAndDrop
+
+	#PSH is the only bit set without expected accompanying ACK
+iptables -A commonScans --protocol tcp --tcp-flags ACK,PSH PSH --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags ACK,PSH PSH --jump logAndDrop
+
+	#URG is the only bit set without expexted accompanying ACK
+iptables -A commonScans --protocol tcp --tcp-flags ACK,URG URG --jump SET --add-set blockedHosts src
+iptables -A commonScans --protocol tcp --tcp-flags ACK,URG URG --jump logAndDrop
+
+	#Scan INPUT and FORWARD on every packet
+iptables -I INIT -j commonScans
+iptables -A INPUT -j commonScans
+
+# No.7:
+iptables
 
 ###################################################
 #                 NAT RULES
