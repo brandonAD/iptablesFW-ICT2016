@@ -106,11 +106,12 @@ iptables -A FORWARD --source $ANY --destination $PROD --jump INETtoPROD
 #          SOURCE DESTINATION PAIR UDCs
 ###################################################
 
-iptables -A CORPtoPROD --jump corpOUT
+	#corpOUT is handled at Firewall 1
 iptables -A CORPtoPROD --jump prodIN
 itpables -A CORPtoPROD --jump ACCEPT
 
-iptables -A DMZtoPROD --jump dmzOUT
+
+	#dmzOUT is handled at Firewall 1
 iptables -A DMZtoPROD --jump prodIN
 iptables -A DMZtoPROD --jump ACCEPT
 
@@ -118,8 +119,8 @@ iptables -A PRODtoDMZ --jump prodOUT
 iptables -A PRODtoDMZ --jump dmzIN
 iptables -A PRODtoDMZ --jump ACCEPT
 
+	#corpIN is handled at Firewall 1
 iptables -A PRODtoCORP --jump prodOUT
-iptables -A PRODtoCORP --jump corpIN
 iptables -A PRODtoCORP --jump ACCEPT
 
 iptables -A PRODtoINET --jump prodOUT
