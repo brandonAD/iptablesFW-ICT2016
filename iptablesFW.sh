@@ -63,10 +63,10 @@ ANY="0.0.0.0/0" #Internet/All
 iptables -F #Flush IPTables rules
 iptables -Z #Zero out Chain counters
 iptables -X #Deletes all non-default chains
+ipset -X    #Deletes all ipset hashtables
 
 #Create a hashtable that will store all hosts to a blacklist
 apt install ipset -y
-ipset flush blockedHosts
 ipset -N blockedHosts iphash
 
 #########################################################
