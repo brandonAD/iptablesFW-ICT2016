@@ -66,6 +66,7 @@ iptables -X #Deletes all non-default chains
 
 #Create a hashtable that will store all hosts to a blacklist
 apt install ipset -y
+ipset flush blockedHosts
 ipset -N blockedHosts iphash
 
 #########################################################
