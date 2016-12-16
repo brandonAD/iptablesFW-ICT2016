@@ -255,7 +255,6 @@ iptables -A prodOUT --source $ANY --jump logAndDrop
 ####################
 # PART B: INCOMING
 ####################
-
 echo "[12] ADDING PRODUCTION [IN] RULES..."
 
 

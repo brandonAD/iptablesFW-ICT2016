@@ -75,7 +75,6 @@ ipset -N blockedHosts iphash
 #########################################################
 #            Create new User Defined Chains
 #########################################################
-
 echo "[3] CREATING UDCs..."
 
 #This chain is a pre-check before any forwarding
