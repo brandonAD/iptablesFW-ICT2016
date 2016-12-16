@@ -129,6 +129,10 @@ iptables -N icmpLogMalformedPackets
 iptables -A icmpLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - ICMP Error Sent]: "
 iptables -A icmpLogMalformedPackets -j REJECT --reject-with icmp-net-prohibited
 
+#Involved with packet shaping GRE packets
+iptables -N PLUCK_GRE -t mangle
+iptables -N REDUCE_GRE_MSS -t mangle
+
 echo "[4] SETTING DEFAULT POLICY..."
 
 #Set IPTables Policy for DEFAULT DENY
@@ -162,7 +166,7 @@ iptables -A FORWARD --source $ANY --destination $PROD --jump INETtoPROD
 echo "[6] ADDING JUMPS - SRC=CORP"
 	#corpOUT is handled at Firewall 1
 iptables -A CORPtoPROD --jump prodIN
-itpables -A CORPtoPROD --jump ACCEPT
+iptables -A CORPtoPROD --jump ACCEPT
 
 echo "[7] ADDING JUMPS - SRC=DMZ"
 	#dmzOUT is handled at Firewall 1
@@ -308,7 +312,6 @@ iptables -A dmzIN --source $ANY --jump logAndDrop
 ###################################################
 
 
-
 ###################################################
 #               OTHER  RULES
 ###################################################
@@ -325,11 +328,17 @@ iptables -A INIT --in-interface enp0s3 -m string --algo bm --string "cmd.exe" --
 echo "[14.2] Creating GRE Mangle Table..."
 # No.2:
 # Create a reduce GRE MSS UDC table (mangle instead of forward by default)
-iptables -N REDUCE_GRE_MSS -t mangle
 iptables -t mangle -A REDUCE_GRE_MSS -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1000 
 
-iptables -N MANGLE_GRE -t mangle
-iptables -t mangle -A MANGLE_GRE -p gre ! --destination $CORP,$PROD,$DMZ --jump REDUCE_GRE_MSS
+iptables -t mangle -A PLUCK_GRE -p gre --destination $CORP -j RETURN
+iptables -t mangle -A PLUCK_GRE -p gre --destination $PROD -j RETURN
+iptables -t mangle -A PLUCK_GRE -p gre --destination $DMZ -j RETURN
+iptables -t mangle -A PLUCK_GRE -p gre --jump REDUCE_GRE_MSS 
+
+
+
+# We would have liked to been able to do this command instead, but it's illegal
+# iptables -t mangle -A MANGLE_GRE -p gre ! --destination $CORP,$PROD,$DMZ --jump REDUCE_GRE_MSS
 
 echo "[14.2] Creating GRE Mangle Table... Done"
 
