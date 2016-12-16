@@ -189,7 +189,7 @@ iptables -A DMZtoINET --jump dmzOUT
 iptables -A DMZtoINET --jump ACCEPT
 
 echo "[8] ADDING JUMPS - SRC=PROD"
-        #prodIN is handled at firewall 2
+        #prodOUT is handled at firewall 2
 iptables -A PRODtoCORP --jump corpIN
 iptables -A PRODtoCORP --jump ACCEPT
 

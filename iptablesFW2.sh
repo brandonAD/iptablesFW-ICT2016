@@ -120,11 +120,13 @@ iptables -N commonScans
 
 #Logging with a Silent Drop
 iptables -N silentLogMalformedPackets
+iptables -A silentLogMalformedPackets --source $DMZ --destination $PROD -p tcp --tcp--flags ALL ACK  --jump RETURN
 iptables -A silentLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - Silent Drop]: "
 iptables -A silentLogMalformedPackets -j DROP
 
 #Logging with an ICMP Response
 iptables -N icmpLogMalformedPackets
+iptables -A icmpLogMalformedPackets --source $DMZ --destination $PROD -p tcp --tcp-flags ALL ACK  --jump RETURN
 iptables -A icmpLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - ICMP Error Sent]: "
 iptables -A icmpLogMalformedPackets -j REJECT --reject-with icmp-net-prohibited
 
