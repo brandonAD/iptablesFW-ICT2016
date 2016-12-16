@@ -328,7 +328,7 @@ iptables -N REDUCE_GRE_MSS -t mangle
 iptables -t mangle -A REDUCE_GRE_MSS -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1000 
 
 iptables -N MANGLE_GRE -t mangle
-iptables -t mangle -A MANGLE_GRE -p gre --out-interface enp0s3 --jump REDUCE_GRE_MSS
+iptables -t mangle -A MANGLE_GRE -p gre ! --destination $CORP,$PROD,$DMZ --jump REDUCE_GRE_MSS
 
 echo "[14.2] Creating GRE Mangle Table... Done"
 
