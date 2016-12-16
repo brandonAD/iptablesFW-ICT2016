@@ -47,7 +47,7 @@
 ###################################################
 
 #Define variables
-
+echo "[1] CREATING VARIABLES..."
 PROD="172.16.0.0/16" #Production Subnet
 PROD_ADMIN="172.16.0.11" #Production Administrator
 DMZ="192.168.0.0/16" #Demilitarized Zone Subnet
@@ -60,10 +60,13 @@ ANY="0.0.0.0/0" #Internet/All
 
 #Reset Iptables' current configuration to default
 
-iptables -F #Flush IPTables rules
-iptables -Z #Zero out Chain counters
-iptables -X #Deletes all non-default chains
-ipset -X    #Deletes all ipset hashtables
+echo "[2] FLUSHING IPTABLES + Installing dependencies..."
+iptables -F 		#Flush default table (forward) IPTables rules
+iptables -Z 		#Zero out default table (forward) Chain counters
+iptables -X 		#Deletes all non-default chains (in forward table)
+iptables -t mangle -F	#Flushes the mangle table rules
+iptables -t mangle -X   #Deletes all non-default chains in mangle table
+ipset -X    		#Deletes all ipset hashtables
 
 #Create a hashtable that will store all hosts to a blacklist
 apt install ipset -y
@@ -72,6 +75,8 @@ ipset -N blockedHosts iphash
 #########################################################
 #            Create new User Defined Chains
 #########################################################
+
+echo "[3] CREATING UDCs..."
 
 #This chain is a pre-check before any forwarding
 iptables -N INIT
@@ -123,6 +128,7 @@ iptables -N icmpLogMalformedPackets
 iptables -A icmpLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - ICMP Error Sent]: "
 iptables -A icmpLogMalformedPackets -j REJECT --reject-with icmp-net-prohibited
 
+echo "[4] SETTING DEFAULT POLICY..."
 
 #Set IPTables Policy for DEFAULT DENY
 iptables --policy INPUT DROP
@@ -132,6 +138,7 @@ iptables --policy FORWARD DROP
 ###################################################
 #            Firewall FORWARD Chain
 ###################################################
+echo "[5] SETTING UP JUMPS TO UDCs FROM FORWARD CHAIN..."
 
         #These two rules are for Section G, No.7. Tracking DMZ packets in and out.
 iptables -A FORWARD --source $DMZ --destination $ANY --jump dmzPacketsOut
@@ -156,6 +163,8 @@ iptables -A FORWARD --in-interface enp0s3 --destination $CORP --jump INETtoCORP
 ###################################################
 #          SOURCE DESTINATION PAIR UDCs
 ###################################################
+
+echo "[6] ADDING JUMPS - SRC=CORP"
 iptables -A CORPtoDMZ --jump corpOUT
 iptables -A CORPtoDMZ --jump dmzIN
 iptables -A CORPtoDMZ --jump ACCEPT
@@ -167,6 +176,7 @@ iptables -A CORPtoPROD --jump ACCEPT
 iptables -A CORPtoINET --jump corpOUT
 iptables -A CORPtoINET --jump ACCEPT
 
+echo "[7] ADDING JUMPS - SRC=DMZ"
         #prodIN is handled at firewall 2
 iptables -A DMZtoPROD --jump dmzOUT
 iptables -A DMZtoPROD --jump ACCEPT
@@ -178,6 +188,7 @@ iptables -A DMZtoCORP --jump ACCEPT
 iptables -A DMZtoINET --jump dmzOUT
 iptables -A DMZtoINET --jump ACCEPT
 
+echo "[8] ADDING JUMPS - SRC=PROD"
         #prodIN is handled at firewall 2
 iptables -A PRODtoCORP --jump corpIN
 iptables -A PRODtoCORP --jump ACCEPT
@@ -185,6 +196,7 @@ iptables -A PRODtoCORP --jump ACCEPT
 iptables -A PRODtoINET --jump prodOUT
 iptables -A PRODtoINET --jump ACCEPT
 
+echo "[9] ADDING JUMPS - SRC=INET"
 iptables -A INETtoPROD --jump prodIN
 iptables -A INETtoPROD --jump ACCEPT
 
@@ -198,10 +210,11 @@ iptables -A INETtoCORP --jump ACCEPT
 #                LOGGING RULES
 ###################################################
 
+echo "[10] ADDING LOGGING RULES"
 iptables -A logAndDrop --source $ANY --jump LOG
 iptables -A logAndDrop --source $ANY --jump DROP
 
-iptables -A logInvalidSSHtoDMZ -m limit --limit 4/minute --limit-burst 6 --jump LOG --log-prefix "[INVALID DMZ HOS$
+iptables -A logInvalidSSHtoDMZ -m limit --limit 4/minute --limit-burst 6 --jump LOG --log-prefix "[INVALID DMZ HOST ACCESS]"
 iptables -A logInvalidSSHtoDMZ --jump DROP
 
 ###################################################
@@ -211,6 +224,7 @@ iptables -A logInvalidSSHtoDMZ --jump DROP
 ####################
 # PART A: OUTGOING
 ####################
+echo "[11] ADDING PRODUCTION [OUT] RULES..."
 
 # No.1
 iptables -A prodOUT --protocol tcp --destination $CORP --destination-port 1:1024 --jump RETURN
@@ -242,6 +256,9 @@ iptables -A prodOUT --source $ANY --jump logAndDrop
 # PART B: INCOMING
 ####################
 
+echo "[12] ADDING PRODUCTION [IN] RULES..."
+
+
 # No.1:
 iptables -A prodIN --protocol tcp --source 10.0.25.0/24 --jump RETURN
 
@@ -268,6 +285,8 @@ iptables -A prodIN --source $ANY --jump logAndDrop
 # PART C: OUTGOING
 ####################
 
+echo "[13] ADDING DMZ [OUT] RULES..."
+
 # No.1a:
 iptables -A dmzOUT --protocol tcp --destination-port 22 --destination $PROD_ADMIN -j RETURN
 
@@ -282,6 +301,8 @@ iptables -A dmzOUT --source $ANY --jump DROP
 ####################
 # PART D: INCOMING
 ####################
+
+echo "[14] ADDING DMZ [IN] RULES..."
 
 # No.1:
 iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 80,25,443 -j RETURN
@@ -313,7 +334,7 @@ iptables -A dmzIN --source $CORP --protocol tcp --destination-port 22 --jump log
 iptables -A dmzIN --source $ANY --protocol tcp --destination-port 22 --jump RETURN
 
 # No.6:
-iptables -I dmzIN --protocol tcp --source $DMZ_ADMIN --destination-port 22 -m conntrack --ctstate INVALID --jump l$
+iptables -I dmzIN --protocol tcp --source $DMZ_ADMIN --destination-port 22 -m conntrack --ctstate INVALID --jump logInvalidSSHtoDMZ
 
 #Default action if there are no matches
 iptables -A dmzIN --source $ANY --jump logAndDrop
@@ -325,6 +346,8 @@ iptables -A dmzIN --source $ANY --jump logAndDrop
 ####################
 # PART E: OUTGOING
 ####################
+
+echo "[15] ADDING CORP [OUT] RULES..."
 
 # No.1:
 iptables -A corpOUT --protocol tcp --source-port 1025:65535 --destination-port 1025:65535 --jump logAndDrop
@@ -338,7 +361,7 @@ iptables -A corpOUT --protocol icmp --destination $PROD --jump RETURN
 iptables -A corpOUT --protocol icmp --icmp-type 8 --destination $DMZ --jump RETURN
 
 # No.4:
-iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --destinati$
+iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --destination-port 22 --jump ACCEPT
 
 # No.5:
 iptables -A corpOUT --protocol udp --destination $ANY --destination-port 53 --jump RETURN
@@ -358,11 +381,13 @@ iptables -A corpOUT --source $ANY --jump logAndDrop
 # PART F: INCOMING
 ####################
 
+echo "[16] ADDING CORP [IN] RULES..."
+
 # No.1:
         #Allowing Section A, No.1 into Corporate
 iptables -A corpIN --protocol tcp --source $PROD --destination-port 1:1024 --jump RETURN
         #Allowing Section A, No.5 into Corporate
-iptables -A corpIN --source $PROD --protocol icmp --icmp-type icmp-request
+iptables -A corpIN --source $PROD --protocol icmp --icmp-type echo-request --jump RETURN
 
 # No.2:
 iptables -A corpIN --protocol tcp --source $DMZ --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
@@ -380,16 +405,24 @@ iptables -A corpIN --source $ANY --jump logAndDrop
 # PART G
 ####################
 
+echo "[17] ADDING 'OTHER' RULES..."
+
 # No.1:
 iptables -A INIT --in-interface enp0s3 -m string --algo bm --string "cmd.exe" --jump logAndDrop
 
+echo "[17.2] Creating GRE Mangle Table..."
 # No.2:
 # Create a reduce GRE MSS UDC table (mangle instead of forward by default)
 iptables -N REDUCE_GRE_MSS -t mangle
 iptables -t mangle -A REDUCE_GRE_MSS -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1000 
 
+iptables -N MANGLE_GRE -t mangle
+iptables -t mangle -A MANGLE_GRE -p gre --out-interface enp0s3 --jump REDUCE_GRE_MSS
+
+echo "[17.2] Creating GRE Mangle Table... Done"
+
 # On GRE packets, send to GRE_REDUCE_MSS to reduce MSS if SYN packet
-iptables -t mangle -A INIT -p gre --out-interface enp0s3 -j REDUCE_GRE_MSS
+#iptables -t mangle -A INIT -p gre --out-interface enp0s3 --jump REDUCE_GRE_MSS
 
 # No.3:
 iptables -A INPUT --in-interface enp0s3 --source 172.16.0.0/16,192.168.0.0/16 -j logAndDrop
