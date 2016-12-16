@@ -233,7 +233,7 @@ iptables -I prodOUT --protocol udp -m conntrack --ctstate INVALID --jump logAndD
 iptables -I prodOUT --protocol tcp -m conntrack --ctstate INVALID --jump logAndDrop
 
 # No.7
-iptables -A prodIN --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump RETURN
+iptables -A prodOUT --protocol icmp -m conntrack --ctstate ESTABLISHED,RELATED --jump RETURN
 
 #Default action if there are no matches
 iptables -A prodOUT --source $ANY --jump logAndDrop
