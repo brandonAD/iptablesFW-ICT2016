@@ -406,12 +406,36 @@ iptables -A INPUT -j commonScans
 
 # No.8:
         #ICMP response to CORP and PROD hosts
-iptables -A INIT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
-iptables -A INPUT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,ACK FIN -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags ACK,URG URG -j icmpLogMalformedPackets
+
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,ACK FIN -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags ACK,URG URG -j icmpLogMalformedPackets
+
 
         #stealth mode drop method to outside hosts
-iptables -A INIT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
-iptables -A INPUT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags ACK,URG URG -j silentLogMalformedPackets
+
+	#stealth mode drop method to outside hosts
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags ACK,URG URG -j silentLogMalformedPackets
 
 # No.9:
         #The script showing routing tables and configuration is separate. "IPTablesInitialSetup.sh"

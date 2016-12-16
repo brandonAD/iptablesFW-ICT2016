@@ -122,13 +122,11 @@ iptables -N commonScans
 
 #Logging with a Silent Drop
 iptables -N silentLogMalformedPackets
-iptables -A silentLogMalformedPackets --source $DMZ --destination $PROD -p tcp --tcp-flags ALL ACK  --jump RETURN
 iptables -A silentLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - Silent Drop]: "
 iptables -A silentLogMalformedPackets -j DROP
 
 #Logging with an ICMP Response
 iptables -N icmpLogMalformedPackets
-iptables -A icmpLogMalformedPackets --source $DMZ --destination $PROD -p tcp --tcp-flags ALL ACK  --jump RETURN
 iptables -A icmpLogMalformedPackets -j LOG --log-prefix "[Malformed Packet - ICMP Error Sent]: "
 iptables -A icmpLogMalformedPackets -j REJECT --reject-with icmp-net-prohibited
 
@@ -485,12 +483,35 @@ iptables -A INPUT -j commonScans
 
 # No.8:
         #ICMP response to CORP and PROD hosts
-iptables -A INIT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
-iptables -A INPUT --source $PROD,$CORP -m conntrack --ctstate INVALID -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,ACK FIN -j icmpLogMalformedPackets
+iptables -A INIT --source $PROD,$CORP -p tcp -m tcp --tcp-flags ACK,URG URG -j icmpLogMalformedPackets
+
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags FIN,ACK FIN -j icmpLogMalformedPackets
+iptables -A INPUT --source $PROD,$CORP -p tcp -m tcp --tcp-flags ACK,URG URG -j icmpLogMalformedPackets
+
 
         #stealth mode drop method to outside hosts
-iptables -A INIT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
-iptables -A INPUT -m conntrack --ctstate INVALID -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j silentLogMalformedPackets
+iptables -A INIT -p tcp -m tcp --tcp-flags ACK,URG URG -j silentLogMalformedPackets
+
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j silentLogMalformedPackets
+iptables -A INPUT -p tcp -m tcp --tcp-flags ACK,URG URG -j silentLogMalformedPackets
 
 # No.9:
         #The script showing routing tables and configuration is separate. "IPTablesInitialSetup.sh"
