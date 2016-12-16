@@ -97,6 +97,7 @@ iptables -N DMZtoCORP
 iptables -N DMZtoINET
 iptables -N PRODtoCORP
 iptables -N PRODtoINET
+iptables -N PRODtoDMZ
 iptables -N INETtoPROD
 iptables -N INETtoDMZ
 iptables -N INETtoCORP
