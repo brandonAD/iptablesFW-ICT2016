@@ -352,6 +352,7 @@ echo "[15] ADDING CORP [OUT] RULES..."
 
 # No.1:
 iptables -A corpOUT --protocol tcp --source-port 1025:65535 --destination-port 1025:65535 --jump logAndDrop
+iptables -A corpOUT --protocol tcp ! --destination $DMZ --jump RETURN
 
 # No.2:
 iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1:1024 --jump RETURN
