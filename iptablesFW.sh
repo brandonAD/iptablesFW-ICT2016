@@ -358,7 +358,7 @@ iptables -A corpOUT --protocol tcp --destination $DMZ --destination-port 1:1024 
 # No.3:
 iptables -A corpOUT --protocol icmp --destination $PROD --jump RETURN
         #ICMP type 8 is an echo-request
-iptables -A corpOUT --protocol icmp --icmp-type 8 --destination $DMZ --jump RETURN
+iptables -A corpOUT --protocol icmp --icmp-type echo-request --destination $DMZ --jump RETURN
 
 # No.4:
 iptables -A corpOUT --protocol tcp --source $CORP_ADMIN --destination $DMZ_SERVER,10.0.0.1,192.168.0.2 --destination-port 22 --jump ACCEPT
