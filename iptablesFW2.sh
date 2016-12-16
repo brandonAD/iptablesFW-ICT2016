@@ -70,6 +70,8 @@ ipset -X    		#Deletes all ipset hashtables
 
 #Create a hashtable that will store all hosts to a blacklist
 apt install ipset -y
+apt install conntrack -y
+apt install conntrackd -y
 ipset -N blockedHosts iphash
 
 #########################################################
