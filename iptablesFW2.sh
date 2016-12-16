@@ -251,7 +251,7 @@ iptables -A prodIN --protocol tcp --destination-port 22 --source $DMZ -m limit -
 iptables -A prodIN --source $DMZ --destination $MCAST --jump RETURN
 
 # No.5:
-iptables -A prodIN --protocol icmp --icmp-type 8 --source $DMZ,$CORP -j RETURN
+iptables -A prodIN --protocol icmp --icmp-type echo-request --source $DMZ,$CORP -j RETURN
 
 #Default action if there are no matches
 iptables -A prodIN --source $ANY --jump logAndDrop
