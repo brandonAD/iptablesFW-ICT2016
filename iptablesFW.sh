@@ -390,6 +390,7 @@ echo "[16] ADDING CORP [IN] RULES..."
 iptables -A corpIN --protocol tcp --source $PROD --destination-port 1:1024 --jump RETURN
         #Allowing Section A, No.5 into Corporate
 iptables -A corpIN --source $PROD --protocol icmp --icmp-type echo-request --jump RETURN
+iptables -A corpIN --source $PROD --protocol icmp --icmp-type echo-reply --jump RETURN
 
 # No.2:
 iptables -A corpIN --protocol tcp --source $DMZ --destination 10.0.16.0/20 --destination-port 22 --jump logAndDrop
