@@ -304,7 +304,7 @@ iptables -A dmzOUT --source $ANY --jump DROP
 echo "[14] ADDING DMZ [IN] RULES..."
 
 # No.1:
-iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 80,25,443 -j RETURN
+iptables -A dmzIN --protocol tcp --source $ANY -m multiport --destination-port 22,80,25,443 -j RETURN
 
 # No.2:
 iptables -A dmzIN --protocol tcp --source $ANY --destination-port 80 -m \
