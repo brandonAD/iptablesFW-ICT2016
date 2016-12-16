@@ -219,7 +219,7 @@ iptables -A prodIN --protocol udp --source-port 53 --jump RETURN
 iptables -A prodOUT --protocol tcp --destination $DMZ --destination-port 1:65535 --jump RETURN
 
 # No.5
-iptables -A prodOUT --protocol icmp --icmp-type 8 --destination $ANY --jump RETURN
+iptables -A prodOUT --protocol icmp --icmp-type echo-request --destination $ANY --jump RETURN
 
 # No.6
 iptables -I prodOUT --protocol udp -m conntrack --ctstate INVALID --jump logAndDrop
